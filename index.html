@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html style="color-scheme: dark light">
+  <title>moth</title>
+  <script>
+    (() => {
+      /*
+(module
+  (global $state (mut i64) (i64.const 0))
+  (global $increment (mut i64) (i64.const 0))
+  (func
+    $seedFromUint64
+    (param $u64 i64)
+    (local $newState i64)
+    (local $newIncrement i64)
+    (global.set $state (local.get $u64))
+    (global.set $increment (i64.const 11634580027462260723))
+    ;; We advance the state first (to get away from the input value
+    ;; in case it has low Hamming Weight).
+    (call $step)
+    (local.set
+      $newState
+      (i64.or
+        (i64.extend_i32_u (call $nextUint32))
+        (i64.shl (i64.extend_i32_u (call $nextUint32)) (i64.const 32))
+      )
+    )
+    (local.set
+      $newIncrement
+      (i64.or
+        (i64.extend_i32_u (i32.or (call $nextUint32) (i32.const 1)))
+        (i64.shl (i64.extend_i32_u (call $nextUint32)) (i64.const 32))
+      )
+    )
+    (global.set
+      $state
+      (i64.add (local.get $newState) (local.get $newIncrement))
+    )
+    (global.set $increment (local.get $newIncrement))
+    (call $step)
+  )
+  (func
+    $step
+    (global.set
+      $state
+      (i64.add
+        (i64.mul (global.get $state) (i64.const 6364136223846793005))
+        (global.get $increment)
+      )
+    )
+  )
+  (func
+    $nextUint32
+    (result i32)
+    (local i32)
+    (local.set
+      0
+      (i32.rotr
+        (i32.wrap_i64
+          (i64.shr_u
+            (i64.xor
+              (i64.shr_u (global.get $state) (i64.const 18))
+              (global.get $state)
+            )
+            (i64.const 27)
+          )
+        )
+        (i32.wrap_i64 (i64.shr_u (global.get $state) (i64.const 59)))
+      )
+    )
+    (call $step)
+    (local.get 0)
+  )
+  (func $sample (result i32)
+    (local $n i32)
+    ;; rejection sampling
+    (loop $loop
+      (local.set $n (call $nextUint32))
+      (br_if $loop (i32.lt_u (i32.const 4294967292) (local.get $n)))
+    )
+    (local.get $n)
+  )
+  (func $1d6 (result i32)
+    (i32.add (i32.rem_u (call $sample) (i32.const 6)) (i32.const 1))
+  )
+  (func $1d12 (result i32)
+    (i32.add (i32.rem_u (call $sample) (i32.const 12)) (i32.const 1))
+  )
+  
+  ;; you only get two stats: LOVE and MOTH.
+  (global $love (mut i32) (i32.const 0))
+  (global $moth (mut i32) (i32.const 0))
+  (func $start (export "start") (param $seed i64) (result i32 i32)
+    (call $seedFromUint64 (local.get $seed))
+    ;; LOVE starts at zero. you are alone in the world.
+    (global.set $love (i32.const 0))
+    ;; MOTH starts at 100.
+    (global.set $moth (i32.const 100))
+    
+    (global.get $love)
+    (global.get $moth)
+  )
+  (func $touch (export "touch") (result i32 i32)
+    (block $block
+      (br_if $block (i32.eq (global.get $moth) (i32.const 0)))
+      ;; your LOVE stat goes up by 1d6 every time you touch the lightbulb.
+      (global.set $love (i32.add (global.get $love) (call $1d6)))
+      ;; your MOTH stat goes down by 1d12 every time you touch the lightbulb.
+      (global.set $moth (i32.sub (global.get $moth) (call $1d12)))
+      ;; your goal is to maximize LOVE, while you are still MOTH
+      (br_if $block (i32.gt_s (global.get $moth) (i32.const 0)))
+      (global.set $moth (i32.const 0))
+    )
+    (global.get $love)
+    (global.get $moth)
+  )
+)
+*/
+
+      let table = new Uint8Array(128);
+      for (let i = 0; i < 64; i++)
+        table[
+          i < 26 ? i + 65 : i < 52 ? i + 71 : i < 62 ? i - 4 : i * 4 - 205
+        ] = i;
+      let __toBinary = (base64) => {
+        let n = base64.length,
+          bytes = new Uint8Array(
+            (((n - (base64[n - 1] == "=") - (base64[n - 2] == "=")) * 3) / 4) |
+              0,
+          );
+        for (let i2 = 0, j = 0; i2 < n; ) {
+          let c0 = table[base64.charCodeAt(i2++)],
+            c1 = table[base64.charCodeAt(i2++)];
+          let c2 = table[base64.charCodeAt(i2++)],
+            c3 = table[base64.charCodeAt(i2++)];
+          bytes[j++] = (c0 << 2) | (c1 >> 4);
+          bytes[j++] = (c1 << 4) | (c2 >> 2);
+          bytes[j++] = (c2 << 6) | c3;
+        }
+        return bytes;
+      };
+
+      const wasmInstance = new WebAssembly.Instance(
+        new WebAssembly.Module(
+          __toBinary(
+            "AGFzbQEAAAABFwVgAX4AYAAAYAABf2ABfgJ/f2AAAn9/AwkIAAECAgICAwQGFQR+AUIAC34BQgALfwFBAAt/AUEACwcRAgVzdGFydAAGBXRvdWNoAAcK3gEIPwECfiAAJABC86/4/caclbuhfyQBEAEQAq0QAq1CIIaEIQEQAkEBcq0QAq1CIIaEIQIgASACfCQAIAIkARABCxUAIwBCrf7V5NSF/ajYAH4jAXwkAAsdAQF/IwBCEogjAIVCG4inIwBCO4ineCEAEAEgAAsUAQF/A0AQAiEAQXwgAEkNAAsgAAsKABADQQZwQQFqCwoAEANBDHBBAWoLEwAgABAAQQAkAkHkACQDIwIjAwspAAJAIwNBAEYNACMCEARqJAIjAxAFayQDIwNBAEoNAEEAJAMLIwIjAwsApQEEbmFtZQFECAAOc2VlZEZyb21VaW50NjQBBHN0ZXACCm5leHRVaW50MzIDBnNhbXBsZQQDMWQ2BQQxZDEyBgVzdGFydAcFdG91Y2gCNwgAAwADdTY0AQhuZXdTdGF0ZQIMbmV3SW5jcmVtZW50AQACAAMBAAFuBAAFAAYBAARzZWVkBwAHHwQABXN0YXRlAQlpbmNyZW1lbnQCBGxvdmUDBG1vdGg=",
+          ),
+        ),
+        {},
+      );
+      const { start, touch } = wasmInstance.exports;
+      const seed = new DataView(
+        crypto.getRandomValues(new Uint8Array(8)).buffer,
+      ).getBigUint64(0, true);
+
+      let { 0: love, 1: moth } = start(seed);
+      alert(
+        `you are alone in the world. 🦋\n\nLOVE: ${love}\nMOTH: ${moth}\n\nahead, a lamp shines bright. 🛋️\n\n=> touch`,
+      );
+
+      let i = 0;
+      while (moth) {
+        ({ 0: love, 1: moth } = touch());
+        alert(
+          `${
+            moth
+              ? `you touch the bulb. 💡${["❤️", "💗", "🩷", "💕"][i++ % 4]}🦋`
+              : "you touch the bulb one last time. 💡❤️‍🔥"
+          }\n\nLOVE: ${love}\nMOTH: ${moth}\n\n${
+            moth ? "=> touch" : `good night. 🌠\n\nyour seed was ${seed}`
+          }`,
+        );
+      }
+    })();
+  </script>
+</html>
